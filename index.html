@@ -277,11 +277,13 @@
             
             for (const piece of sorted) {
                 if (piece.length > remaining) {
-                    cuts.push({
-                        type: 'waste',
-                        start: currentPosition,
-                        length: remaining
-                    });
+                    if (remaining > 0.01) {
+                        cuts.push({
+                            type: 'waste',
+                            start: currentPosition,
+                            length: remaining
+                        });
+                    }
                     remaining = boardLength;
                     currentPosition = 0;
                 }
@@ -297,22 +299,10 @@
                     });
                     remaining -= piece.length;
                     currentPosition += piece.length;
-                    
-                    if (remaining > 0 && remaining < 0.2) {
-                        cuts.push({
-                            type: 'waste',
-                            start: currentPosition,
-                            length: remaining
-                        });
-                        remaining = 0;
-                    } else {
-                        remaining -= MIN_KERF;
-                        currentPosition += MIN_KERF;
-                    }
                 }
             }
             
-            if (remaining > 0) {
+            if (remaining > 0.01) {
                 cuts.push({
                     type: 'waste',
                     start: currentPosition,
