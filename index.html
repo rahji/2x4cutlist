@@ -387,14 +387,12 @@
                 
                 // Draw 45 degree cuts if applicable
                 if (cut.type === 'piece') {
-                    const cornerSize = Math.min(h, w) * 0.15;
-                    
                     if (cut.angleStart) {
                         const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                         path.setAttribute('x1', x);
                         path.setAttribute('y1', y);
-                        path.setAttribute('x2', x + cornerSize);
-                        path.setAttribute('y2', y + cornerSize);
+                        path.setAttribute('x2', x + h);
+                        path.setAttribute('y2', y + h);
                         path.setAttribute('stroke', '#333');
                         path.setAttribute('stroke-width', '1.5');
                         svg.appendChild(path);
@@ -404,8 +402,8 @@
                         const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                         path.setAttribute('x1', x + w);
                         path.setAttribute('y1', y);
-                        path.setAttribute('x2', x + w - cornerSize);
-                        path.setAttribute('y2', y + cornerSize);
+                        path.setAttribute('x2', x + w - h);
+                        path.setAttribute('y2', y + h);
                         path.setAttribute('stroke', '#333');
                         path.setAttribute('stroke-width', '1.5');
                         svg.appendChild(path);
