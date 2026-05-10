@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2x4 Board Cut Visualizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .input-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        input[type="number"] {
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        .pieces-section {
+            grid-column: 1 / -1;
+        }
+        
+        .piece-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .piece-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr auto;
+            gap: 10px;
+            align-items: center;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .piece-item input {
+            padding: 6px;
+            font-size: 13px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        .angle-group {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .angle-group label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin: 0;
+            font-weight: normal;
+            font-size: 12px;
+        }
+        
+        .angle-group input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+            background: #dc3545;
+        }
+        
+        .btn-small:hover {
+            background: #c82333;
+        }
+        
+        .btn-add {
+            background: #28a745;
+            grid-column: 1 / -1;
+            width: 100%;
+        }
+        
+        .btn-add:hover {
+            background: #218838;
+        }
+        
+        svg {
+            border: 2px solid #333;
+            background: white;
+            margin: 20px 0;
+            display: block;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        
+        .stat-box {
+            background: #f0f0f0;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>2x4 Board Cut Visualizer</h1>
+        
+        <div class="input-section">
+            <div class="input-group">
+                <label for="boardLength">Board Length (inches):</label>
+                <input type="number" id="boardLength" value="96" min="1">
+            </div>
+            
+            <div class="input-group">
+                <label for="boardWidth">Board Width (inches):</label>
+                <input type="number" id="boardWidth" value="3.5" min="0.1" step="0.1">
+            </div>
+            
+            <div class="pieces-section">
+                <label>Pieces to cut:</label>
+                <div class="piece-list" id="pieceList"></div>
+                <button class="btn-add" onclick="addPiece()">+ Add Piece</button>
+            </div>
+        </div>
+        
+        <div style="text-align: center;">
+            <button onclick="generateVisualization()">Generate Visualization</button>
+        </div>
+        
+        <div class="stats" id="stats"></div>
+        
+        <svg id="boardCanvas" width="800" height="150"></svg>
+    </div>
+    
+    <script>
+        const MIN_KERF = 0.125; // 1/8 inch saw kerf
+        
+        function addPiece() {
+            const pieceList = document.getElementById('pieceList');
+            const pieceCount = pieceList.children.length;
+            
+            const pieceItem = document.createElement('div');
+            pieceItem.className = 'piece-item';
+            pieceItem.innerHTML = `
+                <input type="number" class="length" placeholder="Length" min="0.1" step="0.1" value="10">
+                <input type="number" class="quantity" placeholder="Qty" min="1" value="1">
+                <div class="angle-group">
+                    <label><input type="checkbox" class="angle-start"> 45° start</label>
+                    <label><input type="checkbox" class="angle-end"> 45° end</label>
+                </div>
+                <div style="text-align: right; color: #666; font-size: 13px;">
+                    <span class="preview-length">10"</span>
+                </div>
+                <button class="btn-small" onclick="this.parentElement.parentElement.remove(); generateVisualization()">Remove</button>
+            `;
+            
+            pieceList.appendChild(pieceItem);
+            
+            const lengthInput = pieceItem.querySelector('.length');
+            lengthInput.addEventListener('change', updatePreview);
+            pieceItem.querySelector('.quantity').addEventListener('change', generateVisualization);
+            pieceItem.querySelector('.angle-start').addEventListener('change', generateVisualization);
+            pieceItem.querySelector('.angle-end').addEventListener('change', generateVisualization);
+            
+            generateVisualization();
+        }
+        
+        function updatePreview(e) {
+            const pieceItem = e.target.parentElement;
+            const length = parseFloat(e.target.value) || 0;
+            pieceItem.querySelector('.preview-length').textContent = length + '"';
+            generateVisualization();
+        }
+        
+        function getPieces() {
+            const pieces = [];
+            const items = document.querySelectorAll('.piece-item');
+            
+            items.forEach((item, idx) => {
+                const length = parseFloat(item.querySelector('.length').value) || 0;
+                const quantity = parseInt(item.querySelector('.quantity').value) || 1;
+                const hasAngleStart = item.querySelector('.angle-start').checked;
+                const hasAngleEnd = item.querySelector('.angle-end').checked;
+                
+                for (let i = 0; i < quantity; i++) {
+                    pieces.push({
+                        id: idx + '-' + i,
+                        length: length,
+                        angleStart: hasAngleStart,
+                        angleEnd: hasAngleEnd
+                    });
+                }
+            });
+            
+            return pieces;
+        }
+        
+        function optimizeCuts(boardLength, pieces) {
+            const sorted = [...pieces].sort((a, b) => b.length - a.length);
+            
+            let cuts = [];
+            let remaining = boardLength;
+            let currentPosition = 0;
+            
+            for (const piece of sorted) {
+                if (piece.length > remaining) {
+                    cuts.push({
+                        type: 'waste',
+                        start: currentPosition,
+                        length: remaining
+                    });
+                    remaining = boardLength;
+                    currentPosition = 0;
+                }
+                
+                if (piece.length <= remaining) {
+                    cuts.push({
+                        type: 'piece',
+                        id: piece.id,
+                        start: currentPosition,
+                        length: piece.length,
+                        angleStart: piece.angleStart,
+                        angleEnd: piece.angleEnd
+                    });
+                    remaining -= piece.length;
+                    currentPosition += piece.length;
+                    
+                    if (remaining > 0 && remaining < 0.2) {
+                        cuts.push({
+                            type: 'waste',
+                            start: currentPosition,
+                            length: remaining
+                        });
+                        remaining = 0;
+                    } else {
+                        remaining -= MIN_KERF;
+                        currentPosition += MIN_KERF;
+                    }
+                }
+            }
+            
+            if (remaining > 0) {
+                cuts.push({
+                    type: 'waste',
+                    start: currentPosition,
+                    length: remaining
+                });
+            }
+            
+            return cuts;
+        }
+        
+        function generateVisualization() {
+            const boardLength = parseFloat(document.getElementById('boardLength').value) || 96;
+            const boardWidth = parseFloat(document.getElementById('boardWidth').value) || 3.5;
+            const pieces = getPieces();
+            
+            if (pieces.length === 0) {
+                document.getElementById('boardCanvas').innerHTML = '';
+                document.getElementById('stats').innerHTML = '';
+                return;
+            }
+            
+            const cuts = optimizeCuts(boardLength, pieces);
+            
+            // Calculate statistics
+            const totalLength = pieces.reduce((sum, p) => sum + p.length, 0);
+            const totalWaste = boardLength - cuts.reduce((sum, c) => sum + (c.type === 'piece' ? c.length : 0), 0);
+            const wastePercent = ((totalWaste / boardLength) * 100).toFixed(1);
+            
+            // Draw board
+            const svg = document.getElementById('boardCanvas');
+            const scale = 8; // pixels per inch
+            const padding = 40;
+            const svgWidth = boardLength * scale + padding * 2;
+            const svgHeight = boardWidth * scale + padding * 2;
+            
+            svg.setAttribute('width', svgWidth);
+            svg.setAttribute('height', svgHeight);
+            
+            svg.innerHTML = '';
+            
+            const boardRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            boardRect.setAttribute('x', padding);
+            boardRect.setAttribute('y', padding);
+            boardRect.setAttribute('width', boardLength * scale);
+            boardRect.setAttribute('height', boardWidth * scale);
+            boardRect.setAttribute('fill', '#f5f5dc');
+            boardRect.setAttribute('stroke', '#333');
+            boardRect.setAttribute('stroke-width', '2');
+            svg.appendChild(boardRect);
+            
+            // Draw cuts
+            const colors = {
+                piece: '#90EE90',
+                waste: '#FFB6C1'
+            };
+            
+            cuts.forEach(cut => {
+                const x = padding + cut.start * scale;
+                const y = padding;
+                const w = cut.length * scale;
+                const h = boardWidth * scale;
+                
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', x);
+                rect.setAttribute('y', y);
+                rect.setAttribute('width', w);
+                rect.setAttribute('height', h);
+                rect.setAttribute('fill', colors[cut.type]);
+                rect.setAttribute('stroke', '#666');
+                rect.setAttribute('stroke-width', '1');
+                svg.appendChild(rect);
+                
+                // Draw 45 degree cuts if applicable
+                if (cut.type === 'piece') {
+                    const cornerSize = Math.min(h, w) * 0.15;
+                    
+                    if (cut.angleStart) {
+                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        path.setAttribute('x1', x);
+                        path.setAttribute('y1', y);
+                        path.setAttribute('x2', x + cornerSize);
+                        path.setAttribute('y2', y + cornerSize);
+                        path.setAttribute('stroke', '#333');
+                        path.setAttribute('stroke-width', '1.5');
+                        svg.appendChild(path);
+                    }
+                    
+                    if (cut.angleEnd) {
+                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        path.setAttribute('x1', x + w);
+                        path.setAttribute('y1', y);
+                        path.setAttribute('x2', x + w - cornerSize);
+                        path.setAttribute('y2', y + cornerSize);
+                        path.setAttribute('stroke', '#333');
+                        path.setAttribute('stroke-width', '1.5');
+                        svg.appendChild(path);
+                    }
+                }
+                
+                // Add labels
+                if (w > 40) {
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    const label = cut.type === 'piece' ? cut.length.toFixed(1) + '"' : 'WASTE';
+                    text.setAttribute('x', x + w / 2);
+                    text.setAttribute('y', y + h / 2 + 5);
+                    text.setAttribute('text-anchor', 'middle');
+                    text.setAttribute('font-size', '12');
+                    text.setAttribute('fill', '#333');
+                    text.setAttribute('pointer-events', 'none');
+                    text.textContent = label;
+                    svg.appendChild(text);
+                }
+            });
+            
+            // Draw ruler
+            const rulerY = padding + boardWidth * scale + 20;
+            for (let i = 0; i <= boardLength; i += 12) {
+                const x = padding + i * scale;
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x);
+                line.setAttribute('y1', rulerY);
+                line.setAttribute('x2', x);
+                line.setAttribute('y2', rulerY + (i % 12 === 0 ? 10 : 5));
+                line.setAttribute('stroke', '#333');
+                line.setAttribute('stroke-width', '1');
+                svg.appendChild(line);
+                
+                if (i % 12 === 0) {
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    text.setAttribute('x', x);
+                    text.setAttribute('y', rulerY + 25);
+                    text.setAttribute('text-anchor', 'middle');
+                    text.setAttribute('font-size', '10');
+                    text.setAttribute('fill', '#333');
+                    text.textContent = i + '"';
+                    svg.appendChild(text);
+                }
+            }
+            
+            // Update statistics
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-box">
+                    <div class="stat-label">Total Pieces</div>
+                    <div class="stat-value">${pieces.length}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Used Length</div>
+                    <div class="stat-value">${totalLength.toFixed(2)}"</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Waste</div>
+                    <div class="stat-value">${totalWaste.toFixed(2)}" (${wastePercent}%)</div>
+                </div>
+            `;
+        }
+        
+        // Initialize with one default piece
+        addPiece();
+    </script>
+</body>
+</html>
